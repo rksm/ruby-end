@@ -82,10 +82,9 @@
   "\\(?:^\\|\\s-+\\)\\(?:do\\|def\\|class\\|module\\|case\\|for\\|begin\\)"
   "Regular expression matching blocks before point.")
 
-
-(defconst ruby-end-expand-after-re
-  "\\s-*$"
-  "Regular expression matching after point.")
+(defconst ruby-end-end-after-re
+  "[\s\n]*\\(end\\)"
+  "Regular expression matching 'end' after point.")
 
 (defun ruby-end-space ()
   "Called when SPC-key is pressed."
@@ -114,6 +113,26 @@
       (indent-line-to whites)
       (insert "end"))))
 
+(defun ruby-end-current-line-indent ()
+  "returns the indent of the line at point as a string"
+  (let ((line (buffer-substring-no-properties (point-at-bol) (point-at-eol))))
+    (save-match-data
+      (and
+       (string-match "^[\s]+" line)
+       (match-string-no-properties 0 string)))))
+
+(defun ruby-end-end-line-has-same-indent-as-current-line-p (end-index)
+  (save-excursion
+    (let* ((current-indent (ruby-end-current-line-indent))
+           (end-indent (and (goto-char end-index) (ruby-end-current-line-indent))))
+      (string= current-indent end-indent))))
+
+(defun ruby-end-end-that-belongs-to-current-line-comes-after-p ()
+  (let ((end-is-next (looking-at ruby-end-end-after-re)))
+    (when end-is-next
+      (let ((end-index (match-beginning 1)))
+        (ruby-end-end-line-has-same-indent-as-current-line-p end-index)))))
+
 (defun ruby-end-expand-p ()
   "Checks if expansion (insertion of end) should be done."
   (let ((ruby-end-expand-statement-modifiers-before-re
@@ -127,7 +146,7 @@
      (or
       (looking-back ruby-end-expand-statement-modifiers-before-re)
       (looking-back ruby-end-expand-keywords-before-re))
-     (looking-at ruby-end-expand-after-re))))
+     (not (ruby-end-end-that-belongs-to-current-line-comes-after-p)))))
 
 (defun ruby-end-code-at-point-p ()
   "Checks if point is code, or comment or string."
